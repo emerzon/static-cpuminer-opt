@@ -1,0 +1,66 @@
+FROM alpine:edge
+
+ENV BUILD_PACKAGES="autoconf automake binutils curl file linux-headers git gcc g++ musl-dev make mpc1 mpfr3 pkgconf re2c tar wget xz"
+
+ENV OPENSSL_URL https://www.openssl.org/source/openssl-1.1.1d.tar.gz
+ENV GMP_URL https://gmplib.org/download/gmp/gmp-6.1.2.tar.bz2
+ENV CURL_URL https://curl.haxx.se/download/curl-7.66.0.tar.bz2
+ENV ZLIB_URL https://www.zlib.net/zlib-1.2.11.tar.gz
+ENV CPUMINER_URL https://github.com/JayDDee/cpuminer-opt
+
+RUN set -xe; \
+    apk add --no-cache ${BUILD_PACKAGES}; \
+	mkdir -p /usr/src; \
+	cd /usr/src; \
+    for i in ${OPENSSL_URL} ${ZLIB_URL}; \
+    do curl ${i} | tar xvz; \
+    done; \
+    for i in ${GMP_URL} ${CURL_URL}; \
+    do curl ${i} | tar xvj; \
+    done; \
+    git clone ${CPUMINER_URL}
+
+
+ENV CFLAGS "-Ofast -march=native -flto"
+ENV CPPFLAGS "-Ofast -march=native -flto"
+ENV LDFLAGS "-flto"
+ENV AR=gcc-ar
+ENV RANLIB=gcc-ranlib
+ENV NM=gcc-nm
+
+
+# Build Zlib
+RUN set -xe; \
+    cd /usr/src/zlib*; \
+    ./configure; \
+    make -j $(nproc) && make install
+
+# Build OpenSSL
+RUN set -xe; \
+    cd /usr/src/openssl*; \
+    ./config; \
+    make -j $(nproc) && make install_sw
+
+# Build Curl
+RUN set -xe; \
+    cd /usr/src/curl*; \
+    ./configure; \
+    make -j $(nproc) && make install
+
+# Build gmp
+RUN set -xe; \
+    cd /usr/src/gmp*; \
+    ./configure --with-pic; \
+    make -j $(nproc) && make install
+
+# Build Cpuminer
+RUN set -xe; \
+    export CFLAGS="-Ofast -march=native"; \
+    export CXXFLAGS="-Ofast -march=native"; \
+	export LDFLAGS="-static"; \
+    cd /usr/src/cpu*; \
+    sh autogen.sh; \
+    # Dirty patching for musl; \
+    echo -ne "#define be64toh(x) (x)\n#define htobe64(x) (x)" >>  algo/hodl/sha512-avx.h; \
+    ./configure --with-curl; \
+    make -j $(nproc) && make install
