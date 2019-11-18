@@ -38,7 +38,7 @@ ENV NM "gcc-nm"
 # Build tmalloc
 RUN set -xe; \
     cd /usr/src/gperftools*; \
-    CFLAGS="-O3 -march=native" CXXFLAGS=$CFLAGS ./autogen.sh && ./configure --enable-static --enable-shared=no; \
+    CFLAGS="-O3 -march=native" CXXFLAGS=$CFLAGS ./autogen.sh && ./configure --enable-static --enable-shared=no --with-tcmalloc-pagesize=64; \
     make -j $(nproc) && make install
 
 # Build Glibc
