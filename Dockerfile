@@ -3,11 +3,10 @@ FROM clearlinux
 ENV BUILD_PACKAGES="c-basic curl git diffutils python-basic"
 
 ENV TCMALLOC_URL https://github.com/gperftools/gperftools
-
-ENV GLIBC_URL https://ftp.gnu.org/gnu/glibc/glibc-2.30.tar.bz2
+ENV GLIBC_URL https://ftp.gnu.org/gnu/glibc/glibc-2.31.tar.bz2
 ENV OPENSSL_URL https://www.openssl.org/source/openssl-1.1.1d.tar.gz
-ENV GMP_URL https://ftp.gnu.org/gnu/gmp/gmp-6.1.2.tar.bz2
-ENV CURL_URL https://github.com/curl/curl
+ENV GMP_URL https://gmplib.org/download/gmp/gmp-6.2.0.tar.bz2
+ENV CURL_URL https://curl.haxx.se/download/curl-7.66.0.tar.bz2
 ENV ZLIB_URL https://www.zlib.net/zlib-1.2.11.tar.gz
 ENV CPUMINER_URL https://github.com/JayDDee/cpuminer-opt
 
@@ -28,8 +27,8 @@ RUN	set -xe; \
     do git clone $i; \
     done
 
-ENV CFLAGS "-Ofast -march=native -funroll-loops -fno-stack-protector -no-pie -fPIC"
-ENV CXXFLAGS "-Ofast -march=native -funroll-loops -fno-stack-protector -no-pie -fPIC"
+ENV CFLAGS "-Ofast -march=native -funroll-loops -fno-stack-protector -fpie -Wl,-z,max-page-size=0x1000 -falign-functions=32 -Wa,-mbranches-within-32B-boundaries"
+ENV CXXFLAGS "${CFLAGS}"
 ENV LDFLAGS "-L/usr/local/lib"
 ENV AR "gcc-ar"
 ENV RANLIB "gcc-ranlib"
