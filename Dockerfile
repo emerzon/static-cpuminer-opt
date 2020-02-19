@@ -20,10 +20,10 @@ RUN	set -xe; \
     for i in ${OPENSSL_URL} ${ZLIB_URL}; \
     do curl ${i} | tar xvz; \
     done; \
-    for i in ${GLIBC_URL} ${GMP_URL}; \
+    for i in ${GLIBC_URL} ${GMP_URL} ${CURL_URL}; \
     do curl ${i} | tar xvj; \
     done; \
-    for i in ${TCMALLOC_URL} ${CURL_URL} ${CPUMINER_URL}; \
+    for i in ${TCMALLOC_URL} ${CPUMINER_URL}; \
     do git clone $i; \
     done
 
@@ -61,7 +61,7 @@ RUN set -xe; \
 
 # Build Curl
 RUN set -xe; \
-    cd /usr/src/curl; \
+    cd /usr/src/curl*; \
     ./buildconf && ./configure --enable-shared=no; \
     make -j $(nproc) && make install
 
@@ -74,7 +74,7 @@ RUN set -xe; \
 # Build Cpuminer
 ENV CFLAGS="${CFLAGS} -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free"
 RUN set -xe; \
-	export LDFLAGS="-static-libstdc++ -static-libgcc -ltcmalloc ${LDFLAGS}"; \
+	export LDFLAGS="--static -static-libstdc++ -static-libgcc -ltcmalloc ${LDFLAGS}"; \
     cd /usr/src/cpu*; \
     sh autogen.sh; \
     ./configure --with-curl; \
