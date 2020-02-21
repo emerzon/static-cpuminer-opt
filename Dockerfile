@@ -38,7 +38,7 @@ ENV NM "gcc-nm"
 RUN set -xe; \
     cd /usr/src/glib*; \
     mkdir build; cd build; \
-    CFLAGS="-O3 -march=native" CXXFLAGS=$CFLAGS ../configure --disable-sanity-checks --enable-static-nss; \
+    CFLAGS="-O3 -march=native" CXXFLAGS=$CFLAGS CPPFLAGS="" ../configure --disable-sanity-checks --enable-static-nss; \
     make -j $(nproc) && make install
 
 # Build Zlib
