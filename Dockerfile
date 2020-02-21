@@ -2,7 +2,6 @@ FROM clearlinux
 
 ENV BUILD_PACKAGES="c-basic curl git diffutils python-basic"
 
-ENV TCMALLOC_URL https://github.com/gperftools/gperftools
 ENV GLIBC_URL https://ftp.gnu.org/gnu/glibc/glibc-2.31.tar.bz2
 ENV OPENSSL_URL https://www.openssl.org/source/openssl-1.1.1d.tar.gz
 ENV GMP_URL https://gmplib.org/download/gmp/gmp-6.2.0.tar.bz2
@@ -27,18 +26,13 @@ RUN	set -xe; \
     do git clone $i; \
     done
 
-ENV CFLAGS "-Ofast -march=native -funroll-loops -fno-stack-protector -fpie -Wl,-z,max-page-size=0x1000 -falign-functions=32 -Wa,-mbranches-within-32B-boundaries"
+ENV CFLAGS "-Ofast -march=native -fno-math-errno -fno-semantic-interposition -fno-trapping-math -funroll-loops -fno-stack-protector -fpie -Wl,-z,max-page-size=0x1000 -falign-functions=32 -Wa,-mbranches-within-32B-boundaries"
 ENV CXXFLAGS "${CFLAGS}"
+ENV CPPFLAGS "-D_FORTIFY_SOURCE=0"
 ENV LDFLAGS "-L/usr/local/lib"
 ENV AR "gcc-ar"
 ENV RANLIB "gcc-ranlib"
 ENV NM "gcc-nm"
-
-# Build tmalloc
-RUN set -xe; \
-    cd /usr/src/gperftools*; \
-    CFLAGS="-O3 -march=native" CXXFLAGS=$CFLAGS ./autogen.sh && ./configure --enable-static --enable-shared=no --with-tcmalloc-pagesize=64; \
-    make -j $(nproc) && make install
 
 # Build Glibc
 RUN set -xe; \
@@ -72,9 +66,8 @@ RUN set -xe; \
     make -j $(nproc) && make install
 
 # Build Cpuminer
-ENV CFLAGS="${CFLAGS} -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free"
 RUN set -xe; \
-	export LDFLAGS="--static -static-libstdc++ -static-libgcc -ltcmalloc ${LDFLAGS}"; \
+	export LDFLAGS="--static -static-libstdc++ -static-libgcc ${LDFLAGS}"; \
     cd /usr/src/cpu*; \
     sh autogen.sh; \
     ./configure --with-curl; \
