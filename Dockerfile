@@ -8,7 +8,7 @@ ENV GMP_URL https://gmplib.org/download/gmp/gmp-6.2.0.tar.bz2
 ENV CURL_URL https://curl.haxx.se/download/curl-7.66.0.tar.bz2
 ENV ZLIB_URL https://www.zlib.net/zlib-1.2.11.tar.gz
 ENV CPUMINER_URL https://github.com/JayDDee/cpuminer-opt
-
+ENV CPUMINER_RKZ_URL https://github.com/RickillerZ/cpuminer-RKZ
 
 RUN set -xe; \
     swupd bundle-add ${BUILD_PACKAGES};
@@ -22,11 +22,16 @@ RUN	set -xe; \
     for i in ${GLIBC_URL} ${GMP_URL} ${CURL_URL}; \
     do curl ${i} | tar xvj; \
     done; \
-    for i in ${TCMALLOC_URL} ${CPUMINER_URL}; \
+    for i in ${CPUMINER_URL}  ${CPUMINER_RKZ_URL}; \
     do git clone $i; \
     done
 
-ENV CFLAGS "-Ofast -march=native -fno-math-errno -fno-semantic-interposition -fno-trapping-math -funroll-loops -fno-stack-protector -fpie -Wl,-z,max-page-size=0x1000 -falign-functions=32 -Wa,-mbranches-within-32B-boundaries"
+ENV CFLAGS "-Ofast -march=native -mtune=native \
+-fno-math-errno -fno-semantic-interposition -fno-trapping-math -fno-exceptions \
+-fno-stack-protector -fpie \
+-Wl,-z,max-page-size=0x1000 \
+-falign-functions=32 -Wa,-mbranches-within-32B-boundaries"
+
 ENV CXXFLAGS "${CFLAGS}"
 ENV CPPFLAGS "-D_FORTIFY_SOURCE=0"
 ENV LDFLAGS "-L/usr/local/lib"
@@ -68,7 +73,15 @@ RUN set -xe; \
 # Build Cpuminer
 RUN set -xe; \
 	export LDFLAGS="--static -static-libstdc++ -static-libgcc ${LDFLAGS}"; \
-    cd /usr/src/cpu*; \
+    cd /usr/src/cpuminer-opt; \
+    sh autogen.sh; \
+    ./configure --with-curl; \
+    make -j $(nproc) && make install
+
+# Build Cpuminer-RKZ
+RUN set -xe; \
+	export LDFLAGS="--static -static-libstdc++ -static-libgcc ${LDFLAGS}"; \
+    cd /usr/src/cpuminer-RKZ*; \
     sh autogen.sh; \
     ./configure --with-curl; \
     make -j $(nproc) && make install
