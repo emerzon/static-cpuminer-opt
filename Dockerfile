@@ -57,7 +57,7 @@ RUN set -xe; \
     --without-gd  \
     --without-selinux \
     --enable-static-nss; \
-    --enable-kernel="$(uname -r | cut -f 1-2 -d \.);" \
+    --enable-kernel="$(uname -r | cut -f 1-2 -d \.)"; \
     make -j $(nproc) && make install
 
 # Build Zlib
