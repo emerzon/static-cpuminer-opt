@@ -56,7 +56,7 @@ RUN set -xe; \
     --without-cvs \
     --without-gd  \
     --without-selinux \
-    --enable-static-nss; \
+    --enable-static-nss \
     --enable-kernel="$(uname -r | cut -f 1-2 -d \.)"; \
     make -j $(nproc) && make install
 
