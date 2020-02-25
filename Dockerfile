@@ -39,15 +39,25 @@ ENV CFLAGS "-Ofast -march=native -mtune=native \
 ENV CXXFLAGS "${CFLAGS}"
 ENV CPPFLAGS "-D_FORTIFY_SOURCE=0"
 ENV LDFLAGS "-L/usr/local/lib"
-ENV AR "gcc-ar"
-ENV RANLIB "gcc-ranlib"
-ENV NM "gcc-nm"
 
 # Build Glibc
 RUN set -xe; \
     cd /usr/src/glib*; \
     mkdir build; cd build; \
-    CFLAGS="-O3 -march=native" CXXFLAGS=$CFLAGS CPPFLAGS="" ../configure --disable-sanity-checks --enable-static-nss; \
+    CFLAGS="-O3 -march=native" CXXFLAGS=$CFLAGS CPPFLAGS="" ../configure \
+    --disable-silent-rules \
+    --disable-dependency-tracking \
+    --disable-profile \
+    --disable-debug \
+    --disable-timezone-tools \
+    --disable-sanity-checks \
+    --disable-nscd \
+    --disable-build-nscd \
+    --without-cvs \
+    --without-gd  \
+    --without-selinux \
+    --enable-static-nss; \
+    --enable-kernel="$(uname -r | cut -f 1-2 -d \.);" \
     make -j $(nproc) && make install
 
 # Build Zlib
