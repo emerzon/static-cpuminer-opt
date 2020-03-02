@@ -29,12 +29,32 @@ RUN	set -xe; \
     do git clone $i; \
     done
 
-ENV CFLAGS "-Ofast -march=native -mtune=native \
--ffast-math -fno-semantic-interposition -fno-trapping-math -fno-exceptions \
--ftree-vectorize \
--fno-stack-protector -fpie \
--Wl,-z,max-page-size=0x1000 \
--falign-functions=32 -Wa,-mbranches-within-32B-boundaries"
+ENV CFLAGS "-Ofast \
+    -pipe \
+    -march=native \
+    -mtune=native \
+    -falign-functions=32 \
+    -falign-jumps=32:8:8 \
+    -falign-loops=32:25:8 \
+    -flimit-function-alignment \
+    -fira-hoist-pressure \
+    -fira-loop-pressure \
+    -fbranch-target-load-optimize2 \
+    -fweb \
+    -fno-plt \
+    -fgraphite-identity \
+    -floop-nest-optimize \
+    -fsched2-use-superblocks \
+    -fipa-pta \
+    -fno-semantic-interposition \
+    -fno-math-errno \
+    -fno-trapping-math \
+    -ffast-math\
+    -fno-exceptions \
+    -fno-stack-protector \
+    -fpie \
+    -Wl,-z,max-page-size=0x1000 \
+    -Wa,-mbranches-within-32B-boundaries"
 
 ENV CXXFLAGS "${CFLAGS}"
 ENV CPPFLAGS "-D_FORTIFY_SOURCE=0"
@@ -44,7 +64,10 @@ ENV LDFLAGS "-L/usr/local/lib"
 RUN set -xe; \
     cd /usr/src/glib*; \
     mkdir build; cd build; \
-    CFLAGS="-O3 -march=native" CXXFLAGS=$CFLAGS CPPFLAGS="" ../configure \
+    CFLAGS="-O3 -march=native -mtune=native" \
+    CXXFLAGS=$CFLAGS \
+    CPPFLAGS="" \
+    ../configure \
     --disable-silent-rules \
     --disable-dependency-tracking \
     --disable-profile \
