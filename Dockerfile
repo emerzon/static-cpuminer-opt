@@ -1,17 +1,20 @@
 FROM clearlinux
 
 ENV BUILD_PACKAGES="c-basic curl git diffutils python-basic"
-
 ENV GLIBC_URL https://ftp.gnu.org/gnu/glibc/glibc-2.31.tar.bz2
 ENV OPENSSL_URL https://www.openssl.org/source/openssl-1.1.1d.tar.gz
 ENV GMP_URL https://gmplib.org/download/gmp/gmp-6.2.0.tar.bz2
-ENV CURL_URL https://curl.haxx.se/download/curl-7.66.0.tar.bz2
+ENV CURL_URL https://curl.haxx.se/download/curl-7.69.0.tar.bz2
 ENV ZLIB_URL https://www.zlib.net/zlib-1.2.11.tar.gz
-ENV CPUMINER_URL https://github.com/JayDDee/cpuminer-opt
+ENV CPUMINER_URL https://github.com/emerzon/cpuminer-opt
 ENV CPUMINER_RKZ_URL https://github.com/RickillerZ/cpuminer-RKZ
 ENV LIBUV_URL https://github.com/libuv/libuv.git
 ENV LIBHWLOC_URL https://github.com/open-mpi/hwloc
 ENV XMRIG_URL https://github.com/xmrig/xmrig/
+
+ENV AR "gcc-ar"
+ENV RANLIB "gcc-ranlib"
+ENV NM "gcc-nm"
 
 RUN set -xe; \
     swupd bundle-add ${BUILD_PACKAGES};
@@ -26,39 +29,8 @@ RUN	set -xe; \
     do curl ${i} | tar xvj; \
     done; \
     for i in ${CPUMINER_URL} ${CPUMINER_RKZ_URL} ${LIBUV_URL} ${LIBHWLOC_URL} ${XMRIG_URL}; \
-    do git clone $i; \
+    do git clone --depth 1 ${i}; \
     done
-
-ENV CFLAGS "-Ofast \
-    -pipe \
-    -march=native \
-    -mtune=native \
-    -falign-functions=32 \
-    -falign-jumps=32:8:8 \
-    -falign-loops=32:25:8 \
-    -flimit-function-alignment \
-    -fira-hoist-pressure \
-    -fira-loop-pressure \
-    -fbranch-target-load-optimize2 \
-    -fweb \
-    -fno-plt \
-    -fgraphite-identity \
-    -floop-nest-optimize \
-    -fsched2-use-superblocks \
-    -fipa-pta \
-    -fno-semantic-interposition \
-    -fno-math-errno \
-    -fno-trapping-math \
-    -ffast-math\
-    -fno-exceptions \
-    -fno-stack-protector \
-    -fpie \
-    -Wl,-z,max-page-size=0x1000 \
-    -Wa,-mbranches-within-32B-boundaries"
-
-ENV CXXFLAGS "${CFLAGS}"
-ENV CPPFLAGS "-D_FORTIFY_SOURCE=0"
-ENV LDFLAGS "-L/usr/local/lib"
 
 # Build Glibc
 RUN set -xe; \
@@ -83,27 +55,64 @@ RUN set -xe; \
     --enable-kernel="$(uname -r | cut -f 1-2 -d \.)"; \
     make -j $(nproc) && make install
 
+
+ENV CFLAGS "-Ofast \
+-pipe \
+-march=native \
+-mtune=native \
+-falign-functions=32 \
+-falign-jumps=32 \
+-falign-loops=32 \
+-flimit-function-alignment \
+-fira-hoist-pressure \
+-fira-loop-pressure \
+-fbranch-target-load-optimize2 \
+-fweb \
+-fno-plt \
+-fgraphite-identity \
+-floop-nest-optimize \
+-fsched2-use-superblocks \
+-fipa-pta \
+-fno-semantic-interposition \
+-fno-math-errno \
+-fno-trapping-math \
+-ffast-math \
+-fno-exceptions \
+-fno-stack-protector \
+-fpie \
+-Wl,-z,max-page-size=0x1000 \
+-Wa,-mbranches-within-32B-boundaries"
+
+ENV CXXFLAGS "${CFLAGS}"
+ENV CPPFLAGS "-D_FORTIFY_SOURCE=0"
+ENV LDFLAGS "-L/usr/local/lib"
+ENV LTO_CFLAGS "-flto -fno-fat-lto-objects -fdevirtualize-at-ltrans"
+
 # Build Zlib
 RUN set -xe; \
     cd /usr/src/zlib*; \
-    ./configure; \
+    CFLAGS="${CFLAGS} ${LTO_CFLAGS}" CXXFLAGS="${CXXFLAGS} ${LTO_CFLAGS}" \
+    ./configure || cat configure.log; \
     make -j $(nproc) && make install
 
 # Build OpenSSL
 RUN set -xe; \
     cd /usr/src/openssl*; \
-    ./Configure no-shared linux-x86_64; \
+    CFLAGS="${CFLAGS} ${LTO_CFLAGS}" CXXFLAGS="${CXXFLAGS} ${LTO_CFLAGS}" \
+    ./Configure -DDSO_NONE no-dso no-shared no-err no-weak-ssl-ciphers no-srp no-dtls1 no-dtls no-idea linux-x86_64; \
     make -j $(nproc) && make install_sw
 
 # Build Curl
 RUN set -xe; \
     cd /usr/src/curl*; \
+    CFLAGS="${CFLAGS} ${LTO_CFLAGS}" CXXFLAGS="${CXXFLAGS} ${LTO_CFLAGS}" \
     ./buildconf && ./configure --enable-shared=no; \
     make -j $(nproc) && make install
 
 # Build gmp
 RUN set -xe; \
     cd /usr/src/gmp*; \
+    CFLAGS="${CFLAGS} ${LTO_CFLAGS}" CXXFLAGS="${CXXFLAGS} ${LTO_CFLAGS}" \
     ./configure --with-pic; \
     make -j $(nproc) && make install
 
@@ -134,6 +143,7 @@ RUN set -xe; \
 RUN set -xe; \
     cd /usr/src/hwloc; \
     sh autogen.sh; \
+    CFLAGS="${CFLAGS} ${LTO_CFLAGS}" \
     ./configure --enable-static=yes --enable-shared=no; \
     make -j $(nproc) && make install
 
