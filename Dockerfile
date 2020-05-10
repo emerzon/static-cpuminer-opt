@@ -2,11 +2,11 @@ FROM clearlinux
 
 ENV BUILD_PACKAGES="c-basic curl git diffutils python-basic"
 ENV GLIBC_URL https://ftp.gnu.org/gnu/glibc/glibc-2.31.tar.bz2
-ENV OPENSSL_URL https://www.openssl.org/source/openssl-1.1.1d.tar.gz
+ENV OPENSSL_URL https://www.openssl.org/source/openssl-1.1.1g.tar.gz
 ENV GMP_URL https://gmplib.org/download/gmp/gmp-6.2.0.tar.bz2
-ENV CURL_URL https://curl.haxx.se/download/curl-7.69.0.tar.bz2
+ENV CURL_URL https://curl.haxx.se/download/curl-7.70.0.tar.bz2
 ENV ZLIB_URL https://www.zlib.net/zlib-1.2.11.tar.gz
-ENV CPUMINER_URL https://github.com/emerzon/cpuminer-opt
+ENV CPUMINER_URL https://github.com/JayDDe/cpuminer-opt
 ENV CPUMINER_RKZ_URL https://github.com/RickillerZ/cpuminer-RKZ
 ENV LIBUV_URL https://github.com/libuv/libuv.git
 ENV LIBHWLOC_URL https://github.com/open-mpi/hwloc
