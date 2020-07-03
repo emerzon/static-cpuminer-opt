@@ -1,4 +1,4 @@
-FROM alpine:edge
+FROM emerzon/alpine-mimalloc
 
 ENV BUILD_PACKAGES="autoconf automake binutils curl file linux-headers git gcc g++ musl-dev make mpc1 mpfr3 pkgconf re2c tar wget xz"
 

@@ -3,7 +3,6 @@ sudo docker build -t cpu .
 CID=$(sudo docker create cpu)
 hash=$(cat /proc/cpuinfo | grep flags | uniq | md5sum | cut -b 1-8)
 sudo docker cp ${CID}:/usr/src/cpuminer-opt/cpuminer artifacts/cpuminer-opt-${hash}
-sudo docker cp ${CID}:/usr/src/cpuminer-RKZ/cpuminer artifacts/cpuminer-rkz-${hash}
 sudo docker cp ${CID}:/usr/src/xmrig/build/xmrig artifacts/xmrig-${hash}
 sudo docker rm ${CID}
 [[ -d ~/linuxmining ]] && cp -fv artifacts/* ~/linuxmining/bin
