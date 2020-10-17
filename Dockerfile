@@ -1,10 +1,11 @@
 FROM clearlinux
 
 ENV BUILD_PACKAGES="c-basic curl git diffutils python-basic"
-ENV GLIBC_URL https://github.com/bminor/glibc
-ENV OPENSSL_URL https://www.openssl.org/source/openssl-1.1.1g.tar.gz
+#ENV GLIBC_URL https://github.com/bminor/glibc
+ENV GLIBC_URL http://ftp.gnu.org/gnu/libc/glibc-2.32.tar.bz2
+ENV OPENSSL_URL https://www.openssl.org/source/openssl-1.1.1h.tar.gz
 ENV GMP_URL https://gmplib.org/download/gmp/gmp-6.2.0.tar.bz2
-ENV CURL_URL https://curl.haxx.se/download/curl-7.72.0.tar.bz2
+ENV CURL_URL https://curl.haxx.se/download/curl-7.73.0.tar.bz2
 ENV ZLIB_URL https://github.com/zlib-ng/zlib-ng/
 ENV CPUMINER_URL https://github.com/JayDDee/cpuminer-opt
 ENV LIBUV_URL https://github.com/libuv/libuv.git
@@ -24,10 +25,10 @@ RUN	set -xe; \
     for i in ${OPENSSL_URL} ; \
     do curl ${i} | tar xvz; \
     done; \
-    for i in ${GMP_URL} ${CURL_URL}; \
+    for i in ${GMP_URL} ${CURL_URL} ${GLIBC_URL}; \
     do curl ${i} | tar xvj; \
     done; \
-    for i in ${GLIBC_URL} ${ZLIB_URL} ${CPUMINER_URL} ${LIBUV_URL} ${LIBHWLOC_URL} ${XMRIG_URL}; \
+    for i in ${ZLIB_URL} ${CPUMINER_URL} ${LIBUV_URL} ${LIBHWLOC_URL} ${XMRIG_URL}; \
     do git clone --depth 1 ${i}; \
     done
 
