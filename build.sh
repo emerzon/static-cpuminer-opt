@@ -1,5 +1,5 @@
 #!/bin/bash
-sudo docker build -t cpu .
+sudo docker build -t cpu -f Dockerfile.ubuntu .
 CID=$(sudo docker create cpu)
 hash=$(cat /proc/cpuinfo | grep flags | uniq | md5sum | cut -b 1-8)
 mkdir -p artifacts
