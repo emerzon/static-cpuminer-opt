@@ -1,23 +1,21 @@
 FROM clearlinux
 
-ENV BUILD_PACKAGES="c-basic curl git diffutils python-basic"
-ENV GLIBC_URL https://github.com/bminor/glibc
-#ENV GLIBC_URL http://ftp.gnu.org/gnu/libc/glibc-2.32.tar.bz2
-#ENV OPENSSL_URL https://www.openssl.org/source/openssl-1.1.1h.tar.gz
-ENV OPENSSL_URL https://github.com/openssl/openssl
-ENV GMP_URL https://gmplib.org/download/gmp/gmp-6.2.0.tar.bz2
-#ENV CURL_URL https://curl.haxx.se/download/curl-7.73.0.tar.bz2
-ENV CURL_URL https://github.com/curl/curl
-ENV ZLIB_URL https://github.com/zlib-ng/zlib-ng/
-ENV CPUMINER_URL https://github.com/JayDDee/cpuminer-opt
-ENV LIBUV_URL https://github.com/libuv/libuv.git
-ENV LIBHWLOC_URL https://github.com/open-mpi/hwloc
-ENV XMRIG_URL https://github.com/xmrig/xmrig/
-ENV XMRIGUPX_URL https://github.com/uPlexa/xmrig-upx.git
-
-ENV AR "gcc-ar"
-ENV RANLIB "gcc-ranlib"
-ENV NM "gcc-nm"
+ENV BUILD_PACKAGES="c-basic curl git diffutils python-basic" \
+    AR="gcc-ar" \
+    RANLIB="gcc-ranlib" \
+    NM="gcc-nm" \
+    GITHUB_REPOS="\
+bminor/glibc:release/2.33/master \
+openssl/openssl:OpenSSL_1_1_1-stable \
+curl/curl:master \
+zlib-ng/zlib-ng:develop \
+JayDDee/cpuminer-opt:master \
+npq7721/cpuminer-gr:master \
+libuv/libuv:master \
+open-mpi/hwloc:master \
+xmrig/xmrig:master \
+uPlexa/xmrig-upx:master" \
+    DOWNLOAD_URLS="https://gmplib.org/download/gmp/gmp-6.2.1.tar.bz2"
 
 RUN set -xe; \
     swupd bundle-add ${BUILD_PACKAGES};
@@ -25,18 +23,18 @@ RUN set -xe; \
 RUN	set -xe; \
     mkdir -p /usr/src; \
 	cd /usr/src; \
-    for i in ${GMP_URL}; \
-    do curl ${i} | tar xvj; \
+    for i in ${DOWNLOAD_URLS}; \
+        do curl ${i} | tar xvj & \
     done; \
-    for i in ${GLIBC_URL} ${ZLIB_URL} ${CPUMINER_URL} ${LIBUV_URL} ${LIBHWLOC_URL} ${XMRIG_URL} ${XMRIGUPX_URL} ${CURL_URL} ${OPENSSL_URL}; \
-    do git clone --depth 1 ${i} & \
+    for i in ${GITHUB_REPOS}; \
+        do git clone --depth 1 -b ${i#*:} https://github.com/${i%:*} & \
     done; wait
 
 # Build Glibc
 RUN set -xe; \
     cd /usr/src/glib*; \
     mkdir build; cd build; \
-    CFLAGS="-O3 -march=native -mtune=native" \
+    CFLAGS="-O3" \
     CXXFLAGS=$CFLAGS \
     CPPFLAGS="" \
     ../configure \
@@ -52,7 +50,8 @@ RUN set -xe; \
     --without-gd  \
     --without-selinux \
     --enable-static-nss \
-    --enable-kernel=5.4; \
+    --enable-kernel=5.4 \
+    --enable-memory-tagging; \
     make -j $(nproc) && make install
 
 ENV CFLAGS "-Ofast \
@@ -110,6 +109,14 @@ RUN set -xe; \
     cd /usr/src/cpuminer-opt; \
     sh autogen.sh; \
     ./configure --with-curl; \
+    make -j $(nproc) && make install
+
+# Build Cpuminer-GR
+RUN set -xe; \
+    export LDFLAGS="--static ${LDFLAGS}"; \
+    cd /usr/src/cpuminer-gr; \
+    sh autogen.sh; \
+    CFLAGS="${CFLAGS} -fcommon" ./configure --with-curl; \
     make -j $(nproc) && make install
 
 # Build LibUV
