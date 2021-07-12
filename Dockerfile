@@ -71,10 +71,10 @@ ENV CFLAGS "-Ofast \
 -falign-functions=32 \
 -Wa,-mbranches-within-32B-boundaries"
 
-ENV CXXFLAGS "${CFLAGS}" \
-    CPPFLAGS "-D_FORTIFY_SOURCE=0" \
-    LDFLAGS "-L/usr/local/lib -Wl,-O1 -Wl,-si -Wl,-z,max-page-size=0x1000 " \
-    LTO_CFLAGS "-flto -fno-fat-lto-objects -fdevirtualize-at-ltrans -flto-compression-level=1"
+ENV CXXFLAGS="${CFLAGS}" \
+    CPPFLAGS="-D_FORTIFY_SOURCE=0" \
+    LDFLAGS="-L/usr/local/lib -Wl,-O1 -Wl,-z,max-page-size=0x1000 " \
+    LTO_CFLAGS="-flto -fno-fat-lto-objects -fdevirtualize-at-ltrans -flto-compression-level=1"
 
 # Build Zlib-NG
 RUN set -xe; \
@@ -106,10 +106,10 @@ RUN set -xe; \
 
 # Build Cpuminer
 RUN set -xe; \
-	export LDFLAGS="--static ${LDFLAGS}"; \
+    export LDFLAGS="--static ${LDFLAGS}"; \
     cd /usr/src/cpuminer-opt; \
-    sh autogen.sh; \
-    ./configure --with-curl; \
+    sh autogen.sh; autoupdate; \
+    ./configure --with-curl || cat config.log; \
     make -j$(nproc) && make install
 
 # Build Cpuminer-GR
