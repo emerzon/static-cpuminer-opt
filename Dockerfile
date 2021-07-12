@@ -94,7 +94,7 @@ RUN set -xe; \
 RUN set -xe; \
     cd /usr/src/curl*; \
     CFLAGS="${CFLAGS} ${LTO_CFLAGS}" CXXFLAGS="${CXXFLAGS} ${LTO_CFLAGS}" \
-    ./buildconf && ./configure --enable-shared=no; \
+    autoreconf -vi && ./configure --enable-shared=no --with-openssl=/usr/local; \
     make -j$(nproc) && make install
 
 # Build gmp
