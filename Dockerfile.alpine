@@ -1,0 +1,85 @@
+FROM alpine:edge
+
+ENV BUILD_PACKAGES="autoconf automake binutils curl file linux-headers git gcc g++ musl-dev make mpc1 pkgconf re2c tar libtool cmake" \
+    AR="gcc-ar" \
+    RANLIB="gcc-ranlib" \
+    NM="gcc-nm" \
+    GITHUB_REPOS="\
+openssl/openssl:OpenSSL_1_1_1-stable \
+curl/curl:master \
+zlib-ng/zlib-ng:develop \
+JayDDee/cpuminer-opt:master" \
+    DOWNLOAD_URLS="https://gmplib.org/download/gmp/gmp-6.2.1.tar.bz2"
+
+RUN set -xe; \
+   apk add ${BUILD_PACKAGES};
+
+RUN	set -xe; \
+    mkdir -p /usr/src; \
+	cd /usr/src; \
+    for i in ${DOWNLOAD_URLS}; \
+        do curl ${i} | tar xvj & \
+    done; \
+    for i in ${GITHUB_REPOS}; \
+        do git clone --depth 1 -b ${i#*:} https://github.com/${i%:*} & \
+    done; wait
+
+ENV CFLAGS "-Ofast \
+-pipe \
+-march=native \
+-mtune=native \
+-fno-exceptions \
+-fno-stack-protector \
+-fgraphite-identity \
+-ftree-loop-distribution \
+-floop-nest-optimize \
+-fipa-pta \
+-ftree-vectorize \
+-fno-semantic-interposition \
+-fno-math-errno \
+-Wl,-z,max-page-size=0x1000 \
+-falign-functions=32 \
+-Wa,-mbranches-within-32B-boundaries"
+
+ENV CXXFLAGS="${CFLAGS}" \
+    CPPFLAGS="-D_FORTIFY_SOURCE=0" \
+    LDFLAGS="-L/usr/local/lib -Wl,-O1 -Wl,-z,max-page-size=0x1000 " \
+    LTO_CFLAGS="-flto -fno-fat-lto-objects -fdevirtualize-at-ltrans -flto-compression-level=1"
+
+# Build Zlib-NG
+RUN set -xe; \
+    cd /usr/src/zlib*; \
+    CFLAGS="${CFLAGS} ${LTO_CFLAGS}" CXXFLAGS="${CXXFLAGS} ${LTO_CFLAGS}" \
+    ./configure --native --zlib-compat --static || cat configure.log; \
+    make -j$(nproc) && make install
+
+# Build OpenSSL
+RUN set -xe; \
+    cd /usr/src/openssl*; \
+    CFLAGS="${CFLAGS} ${LTO_CFLAGS}" CXXFLAGS="${CXXFLAGS} ${LTO_CFLAGS}" \
+    ./Configure -DDSO_NONE no-dso no-shared no-err no-weak-ssl-ciphers no-srp no-dtls1 no-dtls no-idea linux-x86_64; \
+    make -j$(nproc) && make install_sw
+
+# Build Curl
+RUN set -xe; \
+    cd /usr/src/curl*; \
+    CFLAGS="${CFLAGS} ${LTO_CFLAGS}" CXXFLAGS="${CXXFLAGS} ${LTO_CFLAGS}" \
+    ./buildconf && ./configure --with-openssl --enable-shared=no; \
+    make -j$(nproc) && make install
+
+# Build gmp
+RUN set -xe; \
+    cd /usr/src/gmp*; \
+    CFLAGS="${CFLAGS} ${LTO_CFLAGS}" CXXFLAGS="${CXXFLAGS} ${LTO_CFLAGS}" \
+    ./configure --with-pic; \
+    make -j$(nproc) && make install
+
+# Build Cpuminer
+RUN set -xe; \
+    export LDFLAGS="-static ${LDFLAGS}"; \
+    cd /usr/src/cpuminer-opt; \
+    sh autogen.sh; \
+    # Dirty patching for musl; \
+    echo -ne "#define be64toh(x) (x)\n#define htobe64(x) (x)" >>  algo/hodl/sha512-avx.h; \
+    ./configure --with-curl; \
+    make -j$(nproc) && make install
