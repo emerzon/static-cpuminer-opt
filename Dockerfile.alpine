@@ -5,6 +5,7 @@ ENV BUILD_PACKAGES="autoconf automake binutils curl file linux-headers git gcc g
     RANLIB="gcc-ranlib" \
     NM="gcc-nm" \
     GITHUB_REPOS="\
+microsoft/mimalloc:dev \
 openssl/openssl:OpenSSL_1_1_1-stable \
 curl/curl:master \
 zlib-ng/zlib-ng:develop \
@@ -46,6 +47,11 @@ ENV CXXFLAGS="${CFLAGS}" \
     LDFLAGS="-L/usr/local/lib -Wl,-O1 -Wl,-z,max-page-size=0x1000 " \
     LTO_CFLAGS="-flto -fno-fat-lto-objects -fdevirtualize-at-ltrans -flto-compression-level=1"
 
+# Build Mimalloc
+RUN set -xe; \
+    cd /usr/src/mimalloc*; \
+    mkdir build; cd build; cmake -DMI_INSTALL_TOPLEVEL=On .. && make -j$(nproc ) && make install;
+
 # Build Zlib-NG
 RUN set -xe; \
     cd /usr/src/zlib*; \
@@ -81,5 +87,8 @@ RUN set -xe; \
     sh autogen.sh; \
     # Dirty patching for musl; \
     echo -ne "#define be64toh(x) (x)\n#define htobe64(x) (x)" >>  algo/hodl/sha512-avx.h; \
-    ./configure --with-curl; \
-    make -j$(nproc) && make install
+    # Enable mimalloc (piggy patch)
+    sed -i '/^#include.*/i #include <mimalloc-override.h>' cpu-miner.c; \
+    sed -i -E 's/cpuminer_LDADD(.*)/cpuminer_LDADD\1 -lmimalloc/g' Makefile.in; \
+    ./configure --with-curl --with-mimalloc; \
+    make -j$(nproc) && strip cpuminer && make install
