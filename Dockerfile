@@ -67,14 +67,12 @@ ENV CFLAGS "-Ofast \
 -ftree-vectorize \
 -fno-semantic-interposition \
 -fno-math-errno \
--Wl,-z,max-page-size=0x1000 \
--falign-functions=32 \
--Wa,-mbranches-within-32B-boundaries"
+-Wl,-z,max-page-size=0x1000"
 
-ENV CXXFLAGS "${CFLAGS}" \
-    CPPFLAGS "-D_FORTIFY_SOURCE=0" \
-    LDFLAGS "-L/usr/local/lib -Wl,-O1 -Wl,-si -Wl,-z,max-page-size=0x1000 " \
-    LTO_CFLAGS "-flto -fno-fat-lto-objects -fdevirtualize-at-ltrans -flto-compression-level=1"
+ENV CXXFLAGS="${CFLAGS}" \
+    CPPFLAGS="-D_FORTIFY_SOURCE=0" \
+    LDFLAGS="-L/usr/local/lib -Wl,-O1 -Wl,-z,max-page-size=0x1000 " \
+    LTO_CFLAGS="-flto -fno-fat-lto-objects -fdevirtualize-at-ltrans -flto-compression-level=1"
 
 # Build Zlib-NG
 RUN set -xe; \
@@ -94,7 +92,7 @@ RUN set -xe; \
 RUN set -xe; \
     cd /usr/src/curl*; \
     CFLAGS="${CFLAGS} ${LTO_CFLAGS}" CXXFLAGS="${CXXFLAGS} ${LTO_CFLAGS}" \
-    ./buildconf && ./configure --enable-shared=no; \
+    autoreconf -vi && ./configure --enable-shared=no --without-ssl; \
     make -j$(nproc) && make install
 
 # Build gmp
@@ -106,19 +104,19 @@ RUN set -xe; \
 
 # Build Cpuminer
 RUN set -xe; \
-	export LDFLAGS="--static ${LDFLAGS}"; \
+    export CFLAGS="${CFLAGS}" CXXFLAGS="${CXXFLAGS}" LDFLAGS="--static ${LDFLAGS}"; \
     cd /usr/src/cpuminer-opt; \
-    sh autogen.sh; \
-    ./configure --with-curl; \
+    sh autogen.sh; autoupdate; \
+    ./configure --with-curl || cat config.log; \
     make -j$(nproc) && make install
 
 # Build Cpuminer-GR
-RUN set -xe; \
-    export LDFLAGS="--static ${LDFLAGS}"; \
-    cd /usr/src/cpuminer-gr; \
-    sh autogen.sh; \
-    CFLAGS="${CFLAGS} -fcommon" ./configure --with-curl; \
-    make -j$(nproc) && make install
+#RUN set -xe; \
+#    export LDFLAGS="--static ${LDFLAGS}"; \
+#    cd /usr/src/cpuminer-gr; \
+#    sh autogen.sh; \
+#    CFLAGS="${CFLAGS} -fcommon" ./configure --with-curl; \
+#    make -j$(nproc) && make install
 
 # Build LibUV
 RUN set -xe; \
@@ -141,9 +139,9 @@ RUN set -xe; \
     # Dirty; \
     cp /usr/local/lib/*.{a,la} /usr/lib64; \
     sed -Ei 's/^(.*DonateLevel = )(.*)$/\10;/g' src/donate.h; \
+    sed -Ei -e 's/(^.*cmake_minimum_required\s*\(VERSION).*/\1 3.9\)/g' -e 's/(^.*project\s*\(.*\).*$)/\1\nset\(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE\)/g' CMakeLists.txt; \
     mkdir build; cd build; \
-    CFLAGS="${CFLAGS} -fpie -pthread" \
-    CXXFLAGS="${CXXFLAGS} -fpie -pthread" \
+    LDFLAGS="-static ${LDFLAGS}" \
     cmake .. -DBUILD_STATIC=ON; \
     make -j$(nproc);
 
@@ -153,8 +151,8 @@ RUN set -xe; \
     # Dirty; \
     sed -Ei 's/^(.*DonateLevel = )(.*)$/\10;/g' src/donate.h; \
     sed -i '36 a #include <string>' src/net/strategies/DonateStrategy.cpp; \
+    sed -Ei -e 's/(^.*cmake_minimum_required\s*\(VERSION).*/\1 3.9\)/g' -e 's/(^.*project\s*\(.*\).*$)/\1\nset\(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE\)/g' CMakeLists.txt; \
     mkdir build; cd build; \
-    CFLAGS="${CFLAGS} -fpie -pthread" \
-    CXXFLAGS="${CXXFLAGS} -fpie -pthread" \
+    LDFLAGS="-static ${LDFLAGS}" \
     cmake .. -DBUILD_STATIC=ON -DWITH_HTTPD=OFF; \
     make -j$(nproc);
