@@ -25,26 +25,17 @@ RUN	set -xe; \
         do git clone --depth 1 -b ${i#*:} https://github.com/${i%:*} & \
     done; wait
 
-ENV CFLAGS "-Ofast \
+ENV CFLAGS "-O3 \
 -pipe \
 -march=native \
 -mtune=native \
 -fno-exceptions \
 -fno-stack-protector \
--fgraphite-identity \
--ftree-loop-distribution \
--floop-nest-optimize \
--fipa-pta \
--ftree-vectorize \
--fno-semantic-interposition \
--fno-math-errno \
--Wl,-z,max-page-size=0x1000 \
--falign-functions=32 \
--Wa,-mbranches-within-32B-boundaries"
+-fno-math-errno"
 
 ENV CXXFLAGS="${CFLAGS}" \
     CPPFLAGS="-D_FORTIFY_SOURCE=0" \
-    LDFLAGS="-L/usr/local/lib -Wl,-O1 -Wl,-z,max-page-size=0x1000 " \
+    LDFLAGS="-L/usr/local/lib -Wl,-O1" \
     LTO_CFLAGS="-flto -fno-fat-lto-objects -fdevirtualize-at-ltrans -flto-compression-level=1"
 
 # Build Mimalloc
