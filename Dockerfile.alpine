@@ -25,7 +25,7 @@ RUN	set -xe; \
     done; \
     git clone --depth 1 https://boringssl.googlesource.com/boringssl && wait;
 
-ENV CFLAGS "-O3 \
+ENV CFLAGS "-Ofast \
 -pipe \
 -march=native \
 -mtune=native \
@@ -81,7 +81,7 @@ RUN set -xe; \
     sed -i '/^#include.*/i #include <mimalloc-override.h>' cpu-miner.c; \
     sed -i -E 's/cpuminer_LDADD(.*)/cpuminer_LDADD\1 -lmimalloc/g' Makefile.in; \
     mkdir build-pgo && cd build-pgo && \
-    LDFLAGS="-static ${LDFLAGS} -fprofile-arcs" CFLAGS="${CFLAGS} -fprofile-abs-path -fprofile-dir=/tmp/pgo -fprofile-generate -fprofile-update=atomic -fprofile-partial-training" ../configure --with-curl --with-crypto=/usr/src/boringssl; \
+    LDFLAGS="-static ${LDFLAGS} -fprofile-arcs" CFLAGS="${CFLAGS} -fprofile-abs-path -fprofile-dir=/tmp/pgo -fprofile-generate -fprofile-update=atomic" ../configure --with-curl --with-crypto=/usr/src/boringssl; \
     make -j$(nproc);
 
 RUN set -xe; \    
@@ -91,7 +91,7 @@ RUN set -xe; \
 
 RUN set -xe; \
     cd /usr/src/cpuminer-opt/ && \
-    CFLAGS="${CFLAGS} -Wno-error=coverage-mismatch -fprofile-use=/tmp/pgo" LDFLAGS="-static ${LDFLAGS}" ./configure --with-curl --with-crypto=/usr/src/boringssl && make -j$(nproc) && strip cpuminer;
+    CFLAGS="${CFLAGS} -Wno-error=coverage-mismatch -fprofile-use=/tmp/pgo -fprofile-partial-training" LDFLAGS="-static ${LDFLAGS}" ./configure --with-curl --with-crypto=/usr/src/boringssl && make -j$(nproc) && strip cpuminer;
     
 
 
