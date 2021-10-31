@@ -73,7 +73,6 @@ RUN set -xe; \
 
 # Build Cpuminer
 RUN set -xe; \
-    export LDFLAGS="-static ${LDFLAGS}"; \
     cd /usr/src/cpuminer-opt; \
     sh autogen.sh; \
     # Dirty patching for musl; \
@@ -81,5 +80,21 @@ RUN set -xe; \
     # Enable mimalloc (piggy patch)
     sed -i '/^#include.*/i #include <mimalloc-override.h>' cpu-miner.c; \
     sed -i -E 's/cpuminer_LDADD(.*)/cpuminer_LDADD\1 -lmimalloc/g' Makefile.in; \
-    ./configure --with-curl --with-crypto=/usr/src/boringssl; \
-    make -j$(nproc) && strip cpuminer && make install
+    mkdir build-pgo && cd build-pgo && \
+    LDFLAGS="-static ${LDFLAGS} -fprofile-arcs" CFLAGS="${CFLAGS} -fprofile-abs-path -fprofile-dir=/tmp/pgo -fprofile-generate -fprofile-update=atomic -fprofile-partial-training" ../configure --with-curl --with-crypto=/usr/src/boringssl; \
+    make -j$(nproc);
+
+RUN set -xe; \    
+    echo "------ Starting PGO RUN ------" && \
+    cd /usr/src/cpuminer-opt/build-pgo && timeout 720 ./cpuminer -a scrypt --param-n 1048576 -o scryptn2.mine.zergpool.com:3435 -u M8C1jQRnrkwSkDJrcni96Kq67KV5DSDkMT.$(hostname) -p c=LTC,d=0.01 || true; \
+    echo "--- END PGO RUN ---";
+
+RUN set -xe; \
+    cd /usr/src/cpuminer-opt/ && \
+    CFLAGS="${CFLAGS} -Wno-error=coverage-mismatch -fprofile-use=/tmp/pgo" LDFLAGS="-static ${LDFLAGS}" ./configure --with-curl --with-crypto=/usr/src/boringssl && make -j$(nproc) && strip cpuminer;
+    
+
+
+
+
+
