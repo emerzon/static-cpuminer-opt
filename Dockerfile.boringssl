@@ -1,0 +1,111 @@
+FROM clearlinux
+
+ENV BUILD_PACKAGES="c-basic curl git diffutils python-basic go-basic" \
+    AR="gcc-ar" \
+    RANLIB="gcc-ranlib" \
+    NM="gcc-nm" \
+    GITHUB_REPOS="\
+bminor/glibc:release/2.34/master \
+microsoft/mimalloc:dev-slice \
+curl/curl:master \
+zlib-ng/zlib-ng:develop \
+JayDDee/cpuminer-opt:master" \
+    DOWNLOAD_URLS="https://gmplib.org/download/gmp/gmp-6.2.1.tar.bz2"
+
+RUN set -xe; \
+    swupd bundle-add ${BUILD_PACKAGES};
+
+RUN	set -xe; \
+    mkdir -p /usr/src; \
+	cd /usr/src; \
+    for i in ${DOWNLOAD_URLS}; \
+        do curl ${i} | tar xvj & \
+    done; \
+    for i in ${GITHUB_REPOS}; \
+        do git clone --depth 1 -b ${i#*:} https://github.com/${i%:*} & \
+    done; wait && \
+    git clone --depth 1 https://boringssl.googlesource.com/boringssl;
+
+# Build Glibc
+RUN set -xe; \
+    cd /usr/src/glib*; \
+    mkdir build; cd build; \
+    CFLAGS="-O3 -march=native -mtune=native" \
+    CXXFLAGS=$CFLAGS \
+    CPPFLAGS="-U_FORTIFY_SOURCE" \
+    ../configure \
+    --disable-dependency-tracking \
+    --disable-profile \
+    --disable-debug \
+    --disable-timezone-tools \
+    --disable-sanity-checks \
+    --disable-nscd \
+    --disable-build-nscd \
+    --enable-stack-protector=no \
+    --without-cvs \
+    --without-gd  \
+    --without-selinux \
+    --enable-static-nss \
+    --enable-kernel=5.4 && \
+    make -j $(nproc) && make install
+
+ENV CFLAGS "-O3 \
+-pipe \
+-march=native \
+-mtune=native \
+-fno-exceptions \
+-fno-stack-protector \
+-fgraphite-identity \
+-ftree-loop-distribution \
+-floop-nest-optimize \
+-fipa-pta \
+-ftree-vectorize \
+-fno-semantic-interposition \
+-fno-math-errno \
+-Wl,-z,max-page-size=0x1000"
+
+ENV CXXFLAGS="${CFLAGS}" \
+    CPPFLAGS="-D_FORTIFY_SOURCE=0" \
+    LDFLAGS="-L/usr/local/lib -Wl,-O1 -Wl,-z,max-page-size=0x1000 " \
+    LTO_CFLAGS="-flto -fno-fat-lto-objects -fdevirtualize-at-ltrans -flto-compression-level=1"
+
+# Build Mimalloc
+RUN set -xe; \
+    cd /usr/src/mimalloc*; \
+    mkdir build; cd build; cmake -DMI_INSTALL_TOPLEVEL=On .. && make -j$(nproc) && make install;
+
+# Build Zlib-NG
+RUN set -xe; \
+    cd /usr/src/zlib*; \
+    CFLAGS="${CFLAGS} ${LTO_CFLAGS}" CXXFLAGS="${CXXFLAGS} ${LTO_CFLAGS}" \
+    ./configure --native --zlib-compat --static || cat configure.log; \
+    make -j$(nproc) && make install
+
+# Build BoringSSL
+RUN set -xe; \
+    cd /usr/src/boring*; \
+    CFLAGS="${CFLAGS} ${LTO_CFLAGS}" CXXFLAGS="${CXXFLAGS} ${LTO_CFLAGS}" \
+    mkdir build && cd build && cmake DCMAKE_BUILD_TYPE=Release .. &&  make -j$(nproc); \
+    cd .. && mkdir lib && cd lib && ln -s ../build/ssl/libssl.a && ln -s ../build/crypto/libcrypto.a;
+
+# Build Curl
+RUN set -xe; \
+    cd /usr/src/curl*; \
+    CFLAGS="${CFLAGS} ${LTO_CFLAGS}" CXXFLAGS="${CXXFLAGS} ${LTO_CFLAGS}" \
+    autoreconf -vi && ./configure --enable-shared=no --with-ssl=/usr/src/boringssl; \
+    make -j$(nproc) && make install
+
+# Build gmp
+RUN set -xe; \
+    cd /usr/src/gmp*; \
+    CFLAGS="${CFLAGS} ${LTO_CFLAGS}" CXXFLAGS="${CXXFLAGS} ${LTO_CFLAGS}" \
+    ./configure --with-pic; \
+    make -j$(nproc) && make install
+
+# Build Cpuminer
+RUN set -xe; \
+    export LDFLAGS="-static ${LDFLAGS}"; \
+    cd /usr/src/cpuminer-opt; \
+    sh autogen.sh; autoupdate; \
+    ./configure --with-curl --with-crypto=/usr/src/boringssl; \
+    make -j$(nproc) && strip cpuminer && make install

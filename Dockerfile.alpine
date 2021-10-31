@@ -1,12 +1,11 @@
 FROM alpine:edge
 
-ENV BUILD_PACKAGES="autoconf automake binutils curl file linux-headers git gcc g++ musl-dev make mpc1 pkgconf re2c tar libtool cmake" \
+ENV BUILD_PACKAGES="autoconf automake binutils curl file linux-headers git gcc g++ musl-dev make mpc1 pkgconf re2c tar libtool cmake go" \
     AR="gcc-ar" \
     RANLIB="gcc-ranlib" \
     NM="gcc-nm" \
     GITHUB_REPOS="\
-microsoft/mimalloc:dev \
-openssl/openssl:OpenSSL_1_1_1-stable \
+microsoft/mimalloc:dev-slice \
 curl/curl:master \
 zlib-ng/zlib-ng:develop \
 JayDDee/cpuminer-opt:master" \
@@ -23,7 +22,8 @@ RUN	set -xe; \
     done; \
     for i in ${GITHUB_REPOS}; \
         do git clone --depth 1 -b ${i#*:} https://github.com/${i%:*} & \
-    done; wait
+    done; \
+    git clone --depth 1 https://boringssl.googlesource.com/boringssl && wait;
 
 ENV CFLAGS "-O3 \
 -pipe \
@@ -43,6 +43,13 @@ RUN set -xe; \
     cd /usr/src/mimalloc*; \
     mkdir build; cd build; cmake -DMI_INSTALL_TOPLEVEL=On .. && make -j$(nproc ) && make install;
 
+# Build BoringSSL
+RUN set -xe; \
+    cd /usr/src/boring*; \
+    CFLAGS="${CFLAGS} ${LTO_CFLAGS}" CXXFLAGS="${CXXFLAGS} ${LTO_CFLAGS}" \
+    mkdir build && cd build && cmake DCMAKE_BUILD_TYPE=Release .. &&  make -j$(nproc); \
+    cd .. && mkdir lib && cd lib && ln -s ../build/ssl/libssl.a && ln -s ../build/crypto/libcrypto.a;
+
 # Build Zlib-NG
 RUN set -xe; \
     cd /usr/src/zlib*; \
@@ -50,18 +57,11 @@ RUN set -xe; \
     ./configure --native --zlib-compat --static || cat configure.log; \
     make -j$(nproc) && make install
 
-# Build OpenSSL
-RUN set -xe; \
-    cd /usr/src/openssl*; \
-    CFLAGS="${CFLAGS} ${LTO_CFLAGS}" CXXFLAGS="${CXXFLAGS} ${LTO_CFLAGS}" \
-    ./Configure -DDSO_NONE no-dso no-shared no-err no-weak-ssl-ciphers no-srp no-dtls1 no-dtls no-idea linux-x86_64; \
-    make -j$(nproc) && make install_sw
-
 # Build Curl
 RUN set -xe; \
     cd /usr/src/curl*; \
     CFLAGS="${CFLAGS} ${LTO_CFLAGS}" CXXFLAGS="${CXXFLAGS} ${LTO_CFLAGS}" \
-    ./buildconf && ./configure --with-openssl --enable-shared=no; \
+    ./buildconf && ./configure  --with-ssl=/usr/src/boringssl --enable-shared=no; \
     make -j$(nproc) && make install
 
 # Build gmp
@@ -81,5 +81,5 @@ RUN set -xe; \
     # Enable mimalloc (piggy patch)
     sed -i '/^#include.*/i #include <mimalloc-override.h>' cpu-miner.c; \
     sed -i -E 's/cpuminer_LDADD(.*)/cpuminer_LDADD\1 -lmimalloc/g' Makefile.in; \
-    ./configure --with-curl --with-mimalloc; \
+    ./configure --with-curl --with-crypto=/usr/src/boringssl; \
     make -j$(nproc) && strip cpuminer && make install
