@@ -1,6 +1,6 @@
 FROM alpine:edge
 
-ENV BUILD_PACKAGES="autoconf automake binutils curl file linux-headers git gcc g++ musl-dev make mpc1 pkgconf re2c tar libtool cmake go" \
+ENV BUILD_PACKAGES="autoconf automake binutils curl file linux-headers git gcc g++ musl-dev make mpc1 pkgconf re2c tar libtool cmake go numactl-dev" \
     AR="gcc-ar" \
     RANLIB="gcc-ranlib" \
     NM="gcc-nm" \
@@ -8,6 +8,7 @@ ENV BUILD_PACKAGES="autoconf automake binutils curl file linux-headers git gcc g
 microsoft/mimalloc:dev-slice \
 curl/curl:master \
 zlib-ng/zlib-ng:develop \
+WyvernTKC/cpuminer-gr-avx2:main \
 JayDDee/cpuminer-opt:master" \
     DOWNLOAD_URLS="https://gmplib.org/download/gmp/gmp-6.2.1.tar.bz2"
 
@@ -25,7 +26,7 @@ RUN	set -xe; \
     done; \
     git clone --depth 1 https://boringssl.googlesource.com/boringssl && wait;
 
-ENV CFLAGS "-Ofast \
+ENV CFLAGS "-O3 \
 -pipe \
 -march=native \
 -mtune=native \
@@ -71,7 +72,18 @@ RUN set -xe; \
     ./configure --with-pic; \
     make -j$(nproc) && make install
 
-# Build Cpuminer
+
+# Build Cpuminer-GR
+RUN set -xe; \
+    cd /usr/src/cpuminer-gr*; \
+    sh autogen.sh; \
+    # Enable mimalloc (piggy patch)
+    sed -i '/^#include.*/i #include <mimalloc-override.h>' cpu-miner.c; \
+    sed -i -E 's/cpuminer_LDADD(.*)/cpuminer_LDADD\1 -lmimalloc/g' Makefile.in; \
+    LDFLAGS="-static ${LDFLAGS}" CFLAGS="${CFLAGS}" ./configure --with-curl --with-crypto=/usr/src/boringssl; \
+    make -j$(nproc);
+
+# Build Cpuminer (Instrumented)
 RUN set -xe; \
     cd /usr/src/cpuminer-opt; \
     sh autogen.sh; \
@@ -80,18 +92,22 @@ RUN set -xe; \
     # Enable mimalloc (piggy patch)
     sed -i '/^#include.*/i #include <mimalloc-override.h>' cpu-miner.c; \
     sed -i -E 's/cpuminer_LDADD(.*)/cpuminer_LDADD\1 -lmimalloc/g' Makefile.in; \
-    mkdir build-pgo && cd build-pgo && \
-    LDFLAGS="-static ${LDFLAGS} -fprofile-arcs" CFLAGS="${CFLAGS} -fprofile-abs-path -fprofile-dir=/tmp/pgo -fprofile-generate -fprofile-update=atomic" ../configure --with-curl --with-crypto=/usr/src/boringssl; \
+    #mkdir build-pgo && cd build-pgo && \
+    #LDFLAGS="-static ${LDFLAGS} -fprofile-arcs" CFLAGS="${CFLAGS} -fprofile-abs-path -fprofile-dir=/tmp/pgo -fprofile-generate -fprofile-update=atomic" ../configure --with-curl --with-crypto=/usr/src/boringssl; \
+    LDFLAGS="-static ${LDFLAGS}" ./configure --with-curl --with-crypto=/usr/src/boringssl; \
     make -j$(nproc);
 
-RUN set -xe; \    
-    echo "------ Starting PGO RUN ------" && \
-    cd /usr/src/cpuminer-opt/build-pgo && timeout 720 ./cpuminer -a scrypt --param-n 1048576 -o scryptn2.mine.zergpool.com:3435 -u M8C1jQRnrkwSkDJrcni96Kq67KV5DSDkMT.$(hostname) -p c=LTC,d=0.01 || true; \
-    echo "--- END PGO RUN ---";
+# Run PGO tests
+#RUN set -xe; \    
+#    echo "------ Starting PGO RUN ------" && \
+#    cd /usr/src/cpuminer-opt/build-pgo && timeout 120 ./cpuminer -a scrypt --param-n 1048576 -o scryptn2.mine.zergpool.com:3435 -u M8C1jQRnrkwSkDJrcni96Kq67KV5DSDkMT.$(hostname) -p c=LTC,d=0.01 || true; \
+#    cd /usr/src/cpuminer-opt/build-pgo && timeout 120 ./cpuminer -a allium -o allium.mine.zergpool.com:3435 -u M8C1jQRnrkwSkDJrcni96Kq67KV5DSDkMT.$(hostname) -p c=LTC || true; \
+#    echo "--- END PGO RUN ---";
 
-RUN set -xe; \
-    cd /usr/src/cpuminer-opt/ && \
-    CFLAGS="${CFLAGS} -Wno-error=coverage-mismatch -fprofile-use=/tmp/pgo -fprofile-partial-training" LDFLAGS="-static ${LDFLAGS}" ./configure --with-curl --with-crypto=/usr/src/boringssl && make -j$(nproc) && strip cpuminer;
+# Build Cpuminer (Non-Instrumented)
+#RUN set -xe; \
+#    cd /usr/src/cpuminer-opt/ && \
+#    CFLAGS="${CFLAGS} -Wno-error=coverage-mismatch -fprofile-use=/tmp/pgo -fprofile-partial-training" LDFLAGS="-static ${LDFLAGS}" ./configure --with-curl --with-crypto=/usr/src/boringssl && make -j$(nproc) && strip cpuminer;
     
 
 
